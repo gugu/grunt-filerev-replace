@@ -18,11 +18,12 @@ var ENDING_DELIMITER   = '(\\\\?\'|\\\\?"|\\\\?\\)|\\?|#)';
 module.exports = function(grunt) {
   grunt.registerMultiTask('filerev_replace', 'Replace references to grunt-filerev files.', function() {
     var assets_root = this.options().assets_root;
+    var prefix = this.options().prefix || '';
     var views_root = this.options().views_root || assets_root;
     var assets_paths = filerev_summary_to_assets_paths( assets_root );
 
     this.files[0].src.forEach( function( view_src ){
-      var changes = replace_assets_paths_in_view( assets_paths, view_src, views_root );
+      var changes = replace_assets_paths_in_view( assets_paths, view_src, views_root, prefix );
       log_view_changes( view_src, changes );
     });
   });
@@ -47,8 +48,8 @@ module.exports = function(grunt) {
 
   function asset_path_regexp( asset_path ) {
     return new RegExp( STARTING_DELIMITER + // p1
-                       ALLOWED_PATH_CHARS + // p2
-                       '(' + escape_for_regexp( path.basename( asset_path ) ) + ')' + // p3
+                      '(' + ALLOWED_PATH_CHARS + // p2
+                        escape_for_regexp( path.basename( asset_path ) ) + ')' + // p3
                        ALLOWED_PATH_CHARS + // p4
                        ENDING_DELIMITER, // p5
                        'ig' );
@@ -58,23 +59,23 @@ module.exports = function(grunt) {
     return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
   }
 
-  function replace_assets_paths_in_view( assets_paths, view_src, views_root ) {
+  function replace_assets_paths_in_view( assets_paths, view_src, views_root, prefix ) {
     var view = grunt.file.read( view_src );
     var changes = [];
 
     var replace_string = function( match, p1, p2, p3, p4, p5 ) {
-      var asset_path = absolute_asset_path( p2 + p3 + p4, view_src, views_root );
-
+      var asset_path = absolute_asset_path( p2 + p4, view_src, views_root );
       if( grunt.file.arePathsEquivalent( asset_path.toLowerCase(), asset_src.toLowerCase() ) ) {
         changed = true;
-        return p1 + p2 + asset_dest + p4 + p5;
+        return p1 + asset_dest + p4 + p5;
       } else {
         return match;
       }
     };
 
     for( var asset_src in assets_paths ){
-      var asset_dest = assets_paths[asset_src].dest;
+      // TODO: not so pretty to add it like this
+      var asset_dest = prefix + assets_paths[asset_src].dest;
       var changed = false;
 
       view = view.replace( assets_paths[asset_src].regexp, replace_string );
